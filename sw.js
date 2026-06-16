@@ -1,6 +1,6 @@
 /* 农友天气 disaster-map · service worker
    CACHE_VERSION follows WeatherNext convention: wnext-<namespace>-<timestamp> */
-const CACHE_VERSION = 'wnext-disasterMap-202606161025';
+const CACHE_VERSION = 'wnext-disasterMap-202606161026';
 const ASSETS = [
   './',
   './index.html',
