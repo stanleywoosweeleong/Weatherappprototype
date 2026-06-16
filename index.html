@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>农友天气 · 灾害预警地图</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="农友天气" />
+<style>
+  :root{
+    --red:#dc2626; --red-d:#991b1b; --red-bg:#fee2e2; --red-bd:#fca5a5;
+    --amber:#f59e0b; --amber-bg:#fef3c7; --amber-bd:#fcd34d; --amber-tx:#92400e;
+    --blue:#2563eb; --blue-d:#1e3a8a; --blue-bg:#dbeafe; --blue-bd:#93c5fd; --blue-tx:#1e40af;
+    --slate-50:#f8fafc; --slate-100:#f1f5f9; --slate-200:#e2e8f0; --slate-300:#cbd5e1;
+    --slate-400:#94a3b8; --slate-500:#64748b; --slate-700:#334155; --slate-900:#0f172a; --slate-950:#020617;
+    --indigo-950:#1e1b4b; --orange-900:#7c2d12; --orange-bg:#fff7ed; --orange-bd:#fdba74;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--slate-700); background:#fff;
+    -webkit-user-select:none; user-select:none; overflow:hidden;
+  }
+  #app{height:100vh; height:100dvh; display:flex; flex-direction:column;}
+  .no-scrollbar::-webkit-scrollbar{display:none;}
+  .no-scrollbar{-ms-overflow-style:none; scrollbar-width:none;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none;}
+
+  /* HEADER */
+  .header{background:#fff; border-bottom:1px solid var(--slate-200); padding:10px 24px; z-index:50; box-shadow:0 1px 2px rgba(0,0,0,.05); flex-shrink:0;}
+  .header-inner{max-width:56rem; margin:0 auto; display:flex; justify-content:space-between; align-items:center;}
+  .seg{display:flex; background:var(--slate-100); padding:2px; border-radius:12px; border:1px solid var(--slate-200); box-shadow:inset 0 2px 4px rgba(0,0,0,.06);}
+  .seg button{padding:6px 24px; border-radius:10px; font-size:18px; font-weight:900; color:var(--slate-500); transition:all .15s;}
+  .seg button.active{background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.12); color:#1d4ed8;}
+  .clock{background:var(--slate-950); color:#fff; padding:6px 20px; border-radius:12px; font-size:14px; font-weight:900; display:flex; align-items:center; gap:12px; border-bottom:4px solid var(--blue); box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  .clock svg{color:#60a5fa;}
+
+  /* CONTENT */
+  .content{flex:1; position:relative; overflow:hidden; background:var(--slate-50);}
+
+  /* MAP VIEW */
+  .map-wrap{position:absolute; inset:0; display:flex;}
+  .sidebar{width:28%; height:100%; background:rgba(255,255,255,.4); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); z-index:30; overflow-y:auto; padding:8px 0; display:flex; flex-direction:column; gap:4px; box-shadow:inset 0 2px 4px rgba(0,0,0,.06);}
+  .sidebar.left{border-right:1px solid rgba(226,232,240,.5);}
+  .sidebar.right{border-left:1px solid rgba(226,232,240,.5);}
+  .loc-btn{width:100%; padding:10px 12px; display:flex; align-items:center; gap:10px; transition:transform .1s; background:none;}
+  .loc-btn:active{transform:scale(.95);}
+  .loc-btn.left{justify-content:flex-end; text-align:right;}
+  .loc-btn.right{justify-content:flex-start; text-align:left;}
+  .loc-name{font-size:12px; font-weight:900; color:var(--slate-950); line-height:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  @media(min-width:768px){.loc-name{font-size:15px;}}
+  .loc-btn:hover .loc-name{color:#1d4ed8;}
+  .dot{width:14px; height:14px; border-radius:50%; flex-shrink:0;}
+  .dot.red{background:var(--red); box-shadow:0 2px 4px rgba(0,0,0,.2); animation:pulse 2s infinite;}
+  .dot.yellow{background:var(--amber); box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .dot.blue{background:#3b82f6; box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .em-tag{font-size:9px; font-weight:900; color:#1d4ed8; text-transform:uppercase; margin-top:2px; letter-spacing:-.02em;}
+  .loc-col{display:flex; flex-direction:column; min-width:0; overflow:hidden; text-align:left;}
+
+  .map-area{flex:1; height:100%; position:relative; overflow:hidden; background:#BDC9D7;}
+  .map-img{height:100%; width:400%; max-width:none; object-fit:cover; object-position:center; opacity:.95; mix-blend-mode:multiply; filter:brightness(1.1); margin-left:-45%;}
+  .map-svg{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:10;}
+
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+  @keyframes ping{0%{transform:scale(1);opacity:.3;}75%,100%{transform:scale(2);opacity:0;}}
+  .ping{transform-origin:center; transform-box:fill-box; animation:ping 1.5s cubic-bezier(0,0,.2,1) infinite;}
+
+  /* LIST VIEW */
+  .scroll-area{max-width:56rem; margin:0 auto; height:100%; overflow-y:auto; padding:16px; padding-bottom:128px;}
+  .list-col{display:flex; flex-direction:column; gap:16px;}
+  .card{background:#fff; border-radius:2rem; border:2px solid var(--slate-200); padding:20px; box-shadow:0 1px 2px rgba(0,0,0,.05); display:flex; align-items:center; justify-content:space-between; transition:transform .1s; cursor:pointer; border-left-width:14px;}
+  .card:active{transform:scale(.99);}
+  .card-l{display:flex; align-items:center; gap:24px; flex:1; min-width:0; margin-right:16px;}
+  .icon-box{padding:16px; background:var(--slate-50); border-radius:16px; flex-shrink:0; box-shadow:inset 0 2px 4px rgba(0,0,0,.06); display:flex;}
+  .card-name{font-weight:900; color:var(--slate-950); font-size:20px; letter-spacing:-.02em; line-height:1; margin-bottom:12px; white-space:nowrap;}
+  .card-r{display:flex; align-items:center; gap:24px; flex-shrink:0;}
+  .temp-col{text-align:right; display:flex; flex-direction:column; align-items:flex-end; min-width:90px;}
+  .temp-big{font-size:30px; font-weight:900; color:var(--indigo-950); line-height:1; margin-bottom:4px; letter-spacing:-.05em;}
+  .prob-sub{font-size:11px; font-weight:900; color:var(--slate-500); text-transform:uppercase; letter-spacing:-.04em;}
+  .chev{color:var(--slate-300); flex-shrink:0;}
+
+  /* BADGE */
+  .badge{border-radius:8px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; display:inline-block; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,.05); border-width:2px; border-style:solid;}
+  .badge.minimal{padding:2px 8px; font-size:10px;}
+  .badge.red{background:var(--red-bg); color:var(--red-d); border-color:var(--red-bd);}
+  .badge.yellow{background:var(--amber-bg); color:var(--amber-tx); border-color:var(--amber-bd);}
+  .badge.blue{background:var(--blue-bg); color:var(--blue-tx); border-color:var(--blue-bd);}
+
+  /* TABLE VIEW */
+  .table-card{background:#fff; border-radius:1.8rem; border:1px solid var(--slate-200); overflow-x:auto; box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  table{width:100%; min-width:100%; text-align:left; border-collapse:collapse;}
+  thead{background:var(--slate-100); color:var(--slate-500); font-weight:900; font-size:11px; text-transform:uppercase; letter-spacing:.1em; border-bottom:2px solid var(--slate-200);}
+  thead th{padding:12px; white-space:nowrap;}
+  tbody{font-weight:900; font-size:24px;}
+  tbody tr{border-top:1px solid var(--slate-100); cursor:pointer; transition:background .12s;}
+  tbody tr:hover{background:var(--slate-50);}
+  tbody tr:active{background:var(--slate-100);}
+  tbody td{padding:8px 12px; white-space:nowrap; line-height:1;}
+  .td-loc{color:var(--slate-950);}
+  .td-prob{text-align:center; color:#1e40af; font-family:ui-monospace,monospace;}
+  .td-temp{text-align:right; color:#9a3412; font-family:ui-monospace,monospace;}
+  .td-stat{text-align:center;}
+
+  /* FOOTER */
+  .footer{background:#fff; border-top:1px solid var(--slate-100); padding:12px 24px; position:fixed; bottom:0; width:100%; z-index:40; box-shadow:0 -10px 25px rgba(0,0,0,.1);}
+  .footer-inner{max-width:56rem; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:48px; font-size:18px; font-weight:900; letter-spacing:-.04em;}
+  .footer-item{display:flex; align-items:center; gap:10px;}
+  .footer-item span{color:var(--slate-900);}
+
+  /* MODAL */
+  .overlay{position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(2,6,23,.8); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);}
+  .modal{background:#fff; width:100%; max-width:24rem; border-radius:3.5rem; box-shadow:0 25px 50px rgba(0,0,0,.4); padding:28px; position:relative; overflow:hidden; border:2px solid var(--slate-200); animation:zoomIn .2s ease-out;}
+  @keyframes zoomIn{from{transform:scale(.95);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .close-btn{position:absolute; top:28px; right:28px; padding:10px; background:var(--slate-100); border-radius:50%; z-index:10; box-shadow:0 1px 2px rgba(0,0,0,.05); transition:transform .1s; display:flex;}
+  .close-btn:active{transform:scale(.9);}
+  .modal-head{display:flex; flex-direction:column; align-items:center; text-align:center; margin-top:8px; margin-bottom:24px;}
+  .modal-icon{padding:24px; background:var(--slate-50); border-radius:3rem; border:2px solid var(--slate-100); margin-bottom:16px; box-shadow:inset 0 2px 4px rgba(0,0,0,.06); display:flex;}
+  .modal-title{font-size:36px; font-weight:900; color:var(--slate-950); letter-spacing:-.02em; line-height:1.1;}
+  .modal-live{display:flex; align-items:center; gap:8px; margin-top:8px;}
+  .modal-live span{font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.1em; color:#1d4ed8;}
+  .modal-live svg{color:#1d4ed8;}
+  .chart-box{margin-bottom:24px; background:var(--slate-50); padding:20px; border-radius:2.5rem; border:2px solid var(--slate-100); box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .chart-legend{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.1em;}
+  .chart-legend>div{display:flex; align-items:center; gap:8px;}
+  .lg-dot{width:14px; height:14px; border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .chart-svg-box{position:relative; height:96px; width:100%; background:#fff; border-radius:24px; overflow:hidden; border:1px solid var(--slate-200); padding:4px; box-shadow:inset 0 2px 4px rgba(0,0,0,.06);}
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;}
+  .stat{padding:16px; border-radius:2.5rem; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.05); display:flex; flex-direction:column; justify-content:center; min-height:140px; border-width:2px; border-style:solid;}
+  .stat.temp{background:rgba(255,247,237,.5); border-color:var(--orange-bd);}
+  .stat.prob{background:rgba(219,234,254,.5); border-color:var(--blue-bd);}
+  .stat-label{font-weight:900; text-transform:uppercase; display:block; margin-bottom:8px; line-height:1;}
+  .stat.temp .stat-label{color:var(--orange-900);}
+  .stat.prob .stat-label{color:var(--blue-d);}
+  .stat-label.zh-temp{font-size:30px;} .stat-label.zh-prob{font-size:24px;} .stat-label.en{font-size:18px; letter-spacing:-.04em;}
+  .stat-val{font-size:48px; font-weight:900; color:var(--indigo-950); letter-spacing:-.05em;}
+  .alert-bar{width:100%; padding:20px; border-radius:2.5rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border-width:4px; border-style:solid; box-shadow:0 20px 25px rgba(0,0,0,.15);}
+  .alert-bar.red{background:var(--red); color:#fff; border-color:var(--red-d);}
+  .alert-bar.dark{background:var(--slate-900); color:#fff; border-color:var(--slate-700);}
+  .alert-status{font-weight:900; text-transform:uppercase; letter-spacing:.1em; font-size:24px;}
+  .alert-desc{font-size:12px; font-weight:700; opacity:.9; text-align:center; padding:0 24px; line-height:1.3; margin-top:4px;}
+
+  /* INSTALL TOAST */
+  .install-toast{position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--slate-950); color:#fff; padding:12px 16px; border-radius:16px; display:flex; align-items:center; gap:12px; z-index:90; box-shadow:0 10px 25px rgba(0,0,0,.3); font-size:14px; font-weight:700; max-width:90%;}
+  .install-toast button{background:var(--blue); color:#fff; padding:6px 14px; border-radius:10px; font-weight:900; font-size:13px; white-space:nowrap;}
+  .install-toast .x{background:none; color:var(--slate-400); padding:4px; display:flex;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   农友天气 · STATIC DEMO PWA  (ported from React prototype)
+   Conventions preserved per WeatherNext family:
+   - namespace-isolated; CACHE_VERSION pattern wnext-<ns>-<ts>
+   - single-file, offline-first, bilingual ZH/EN labels
+   ============================================================ */
+const NS = 'disasterMap';
+
+/* ---- MAP CALIBRATION (preserved exactly from prototype) ---- */
+const MAP_BOUNDS = { north: 8.5, south: 0.5, west: 98.0, east: 119.5 };
+function getPosition(lat, lon, isEM){
+  let latP = (MAP_BOUNDS.north - lat) / (MAP_BOUNDS.north - MAP_BOUNDS.south) * 100;
+  let lonP = (lon - MAP_BOUNDS.west) / (MAP_BOUNDS.east - MAP_BOUNDS.west) * 100;
+  if (isEM) lonP = 92 + (lon - 110) * 0.3;
+  return { y: latP, x: lonP };
+}
+
+/* ---- SIMULATION (preserved) ---- */
+function getSimulatedWeather(b, time){
+  const hour = time.getHours();
+  const tempMod = Math.sin((hour - 6) * Math.PI / 12) * 4;
+  const probMod = (hour >= 14 && hour <= 19) ? 15 : -5;
+  const isEng = b.id === 'kuala_krai' || b.id === 'keningau';
+  return {
+    ...b,
+    temp: `${parseInt(b.temp) + Math.round(tempMod)}°C`,
+    prob: `${Math.min(100, Math.max(0, parseInt(b.prob) + probMod))}%`,
+    isEng,
+    tempLabel: isEng ? "Temperature" : "温度",
+    probLabel: isEng ? "Rain Prob" : "降雨概率",
+    rainTrackLabel: isEng ? "Rain" : "降雨"
+  };
+}
+
+/* ---- DATA (preserved exactly) ---- */
+const baseWeatherData = [
+  { id:'chenderiang', name:"积莪营", lat:4.256, lon:101.22, temp:"29", weather:"雷雨", icon:"rain-sun", level:"yellow", status:"注意", desc:"山区阵雨，路面湿滑。", prob:"45%" },
+  { id:'tg_malim', name:"丹绒马林", lat:3.717, lon:101.55, temp:"30", weather:"雷雨", icon:"storm", level:"yellow", status:"注意", desc:"局部降雨，视线可能受阻。", prob:"55%" },
+  { id:'benta', name:"日利谷", lat:4.048, lon:101.92, temp:"28", weather:"Storm", icon:"storm", level:"red", status:"危险", desc:"风暴活跃，严禁户外活动。", prob:"90%" },
+  { id:'cheroh', name:"积罗", lat:3.903, lon:101.81, temp:"28", weather:"Storm", icon:"storm", level:"red", status:"高风险", desc:"强风暴预警，寻找坚固建筑。", prob:"80%" },
+  { id:'gali', name:"嘉力", lat:3.833, lon:101.90, temp:"28", weather:"Rain", icon:"rain", level:"red", status:"警告", desc:"持续降雨，注意水位监测。", prob:"75%" },
+  { id:'sg_ruan', name:"双溪兰", lat:3.793, lon:101.93, temp:"27", weather:"Storm", icon:"storm", level:"red", status:"警告", desc:"雷雨交加，注意用电安全。", prob:"88%" },
+  { id:'sg_klau', name:"双溪吉流", lat:3.783, lon:101.98, temp:"27", weather:"Storm", icon:"storm", level:"red", status:"警告", desc:"强风过境，远离简易设施。", prob:"85%" },
+  { id:'tras', name:"都赖", lat:3.736, lon:101.80, temp:"27", weather:"Storm", icon:"storm", level:"red", status:"高风险", desc:"频繁雷暴，避开空旷高地。", prob:"70%" },
+  { id:'bentong_utara', name:"文冬市北", lat:3.528, lon:101.91, temp:"26", weather:"Rain", icon:"rain", level:"red", status:"危险", desc:"路面积水，交通可能中断。", prob:"95%" },
+  { id:'sg_dua', name:"双溪都亚", lat:3.459, lon:102.00, temp:"26", weather:"Rain", icon:"rain", level:"yellow", status:"注意", desc:"河流水位正在稳步上升。", prob:"40%" },
+  { id:'karak', name:"加叻", lat:3.414, lon:102.03, temp:"27", weather:"Rain", icon:"rain", level:"red", status:"警告", desc:"降雨量大，防范山泥倾泻。", prob:"70%" },
+  { id:'manchis', name:"文积", lat:3.205, lon:102.16, temp:"29", weather:"Storm", icon:"storm", level:"yellow", status:"注意", desc:"间歇性强雷阵雨。", prob:"50%" },
+  { id:'durian_tipus', name:"榴莲知贝", lat:3.120, lon:102.21, temp:"29", weather:"Cloudy", icon:"cloudy", level:"blue", status:"安全", desc:"天气目前趋于稳定。", prob:"10%" },
+  { id:'kuala_krai', name:"Kuala Krai", lat:5.456, lon:102.33, temp:"27", weather:"Heavy Rain", icon:"storm", level:"red", status:"High Risk", desc:"Flood warning active.", prob:"95%" },
+  { id:'chapu', name:"查普", lat:5.177, lon:102.89, temp:"26", weather:"Rain", icon:"rain", level:"red", status:"危险", desc:"水位暴涨，请即刻撤离。", prob:"85%" },
+  { id:'lojing', name:"罗京", lat:4.744, lon:101.64, temp:"19", weather:"Cloudy", icon:"cloudy", level:"blue", status:"注意", desc:"山区浓雾，能见度受限。", prob:"10%" },
+  { id:'ketam', name:"甘榜哥丹", lat:3.540, lon:102.36, temp:"27", weather:"Storm", icon:"storm", level:"yellow", status:"安全", desc:"阵雨已停，目前状况稳定。", prob:"40%" },
+  { id:'lanchang', name:"联增", lat:3.429, lon:102.13, temp:"29", weather:"Cloudy", icon:"cloudy", level:"yellow", status:"安全", desc:"天气多云转晴。", prob:"30%" },
+  { id:'temerloh', name:"淡马鲁", lat:3.450, lon:102.42, temp:"30", weather:"Cloudy", icon:"cloudy", level:"yellow", status:"安全", desc:"无显著危险气象。", prob:"15%" },
+  { id:'triang', name:"直凉", lat:3.248, lon:102.41, temp:"28", weather:"Storm", icon:"storm", level:"yellow", status:"安全", desc:"局部地区有弱雷阵雨。", prob:"60%" },
+  { id:'bukit_mendi', name:"武吉门迪", lat:3.220, lon:102.26, temp:"29", weather:"Cloudy", icon:"cloudy", level:"blue", status:"安全", desc:"天气平稳良好。", prob:"20%" },
+  { id:'kemayan', name:"金马扬", lat:3.141, lon:102.36, temp:"28", weather:"Rain", icon:"rain", level:"yellow", status:"安全", desc:"零星阵雨。", prob:"65%" },
+  { id:'sg_lui', name:"双溪镭", lat:3.09639, lon:102.35861, temp:"29", weather:"Cloudy", icon:"cloudy", level:"blue", status:"安全", desc:"气流正常。", prob:"15%" },
+  { id:'labis', name:"拉美士", lat:2.385, lon:103.02, temp:"29", weather:"Cloudy", icon:"cloudy", level:"blue", status:"安全", desc:"多云可见阳光。", prob:"15%" },
+  { id:'keningau', name:"Keningau", lat:5.355, lon:116.14, temp:"29", weather:"Cloudy", icon:"cloudy", level:"blue", status:"Stable", desc:"Stable condition.", prob:"30%", eastMalaysia:true },
+  { id:'sibu', name:"诗巫", lat:2.338, lon:111.85, temp:"25", weather:"Storm", icon:"storm", level:"red", status:"危险", desc:"强对流天气，注意防范。", prob:"90%", eastMalaysia:true },
+];
+
+const LEFT_IDS = ['chenderiang','tg_malim','benta','cheroh','gali','sg_ruan','sg_klau','tras','bentong_utara','sg_dua','karak','manchis','durian_tipus'];
+
+function processData(time){
+  const sim = baseWeatherData.map(loc => getSimulatedWeather(loc, time));
+  const leftSide = sim.filter(d => LEFT_IDS.includes(d.id)).sort((a,b)=>{
+    const topOrder={chenderiang:1,tg_malim:2};
+    const bottomOrder={manchis:1,durian_tipus:2};
+    if(topOrder[a.id]||topOrder[b.id]) return (topOrder[a.id]||99)-(topOrder[b.id]||99);
+    if(bottomOrder[a.id]||bottomOrder[b.id]) return (bottomOrder[a.id]||-99)-(bottomOrder[b.id]||-99);
+    return b.lat-a.lat;
+  });
+  const rightPen = sim.filter(d=>!LEFT_IDS.includes(d.id)&&!d.eastMalaysia).sort((a,b)=>b.lat-a.lat);
+  const rightEM = sim.filter(d=>d.eastMalaysia).sort((a,b)=>{
+    const o={keningau:1,sibu:2}; return (o[a.id]||5)-(o[b.id]||5);
+  });
+  return { leftSide, rightSide:[...rightPen,...rightEM], allSorted:[...sim].sort((a,b)=>b.lat-a.lat) };
+}
+
+/* ---- ICONS (inline SVG, lucide paths) ---- */
+const ICONS = {
+  storm: c=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>`,
+  rain: c=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>`,
+  'rain-sun': c=>`<span style="position:relative;display:inline-flex;"><svg style="width:16px;height:16px;position:absolute;top:-4px;left:-4px;color:#f97316" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg></span>`,
+  cloudy: c=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
+  clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  chevron: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  x: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#020617" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  activity: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+};
+function weatherIcon(type, cls){ return (ICONS[type]||ICONS.cloudy)(cls); }
+function dotColor(l){ return l==='red'?'#dc2626':l==='yellow'?'#f59e0b':'#2563eb'; }
+
+/* ---- STATE ---- */
+let state = { viewMode:'visual_map', currentTime:new Date(), selectedLoc:null };
+function fmtTime(d){ return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+
+/* ---- RENDER ---- */
+function render(){
+  const d = processData(state.currentTime);
+  const root = document.getElementById('app');
+  root.innerHTML = headerHTML() + `<div class="content">${
+    state.viewMode==='visual_map'? mapHTML(d) :
+    state.viewMode==='grid'? listHTML(d) : tableHTML(d)
+  }</div>` + footerHTML(d) + (state.selectedLoc? modalHTML(state.selectedLoc):'');
+  bind(d);
+}
+
+function headerHTML(){
+  const mk=(m,l)=>`<button data-view="${m}" class="${state.viewMode===m?'active':''}">${l}</button>`;
+  return `<div class="header"><div class="header-inner">
+    <div class="seg">${mk('visual_map','地图')}${mk('grid','列表')}${mk('report','表格')}</div>
+    <div class="clock">${ICONS.clock} ${fmtTime(state.currentTime)}</div>
+  </div></div>`;
+}
+
+function mapHTML(d){
+  const leftBtns = d.leftSide.map(i=>`<button class="loc-btn left" data-loc="${i.id}">
+    <span class="loc-name">${i.name}</span><div class="dot ${i.level}"></div></button>`).join('');
+  const rightBtns = d.rightSide.map(i=>`<button class="loc-btn right" data-loc="${i.id}">
+    <div class="dot ${i.level}"></div>
+    <div class="loc-col"><span class="loc-name">${i.name}</span>${i.eastMalaysia?'<span class="em-tag">东马地区</span>':''}</div>
+  </button>`).join('');
+  const pins = d.allSorted.map(i=>{
+    const p=getPosition(i.lat,i.lon,i.eastMalaysia);
+    const isLeft=LEFT_IDS.includes(i.id);
+    const c=dotColor(i.level);
+    return `<g>
+      <line x1="${p.x}%" y1="${p.y}%" x2="${isLeft?0:100}%" y2="${p.y}%" stroke="#0f172a" stroke-width="1" stroke-dasharray="4 4" opacity="0.2"/>
+      <circle cx="${p.x}%" cy="${p.y}%" r="6" fill="${c}" stroke="white" stroke-width="2"/>
+      ${i.level==='red'?`<circle class="ping" cx="${p.x}%" cy="${p.y}%" r="12" fill="none" stroke="#dc2626" stroke-width="2" opacity="0.3"/>`:''}
+    </g>`;
+  }).join('');
+  return `<div class="map-wrap">
+    <div class="sidebar left no-scrollbar">${leftBtns}<div style="height:80px"></div></div>
+    <div class="map-area">
+      <img class="map-img" src="map.jpg" alt="Relief"/>
+      <svg class="map-svg">${pins}</svg>
+    </div>
+    <div class="sidebar right no-scrollbar">${rightBtns}<div style="height:80px"></div></div>
+  </div>`;
+}
+
+function badge(i){ return `<span class="badge minimal ${i.level}">${i.status}</span>`; }
+
+function listHTML(d){
+  return `<div class="scroll-area no-scrollbar"><div class="list-col">${
+    d.allSorted.map(i=>`<div class="card" data-loc="${i.id}" style="border-left-color:${dotColor(i.level)}">
+      <div class="card-l">
+        <div class="icon-box">${weatherIcon(i.icon,'wic-lg')}</div>
+        <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;">
+          <h3 class="card-name">${i.name}</h3><div>${badge(i)}</div>
+        </div>
+      </div>
+      <div class="card-r">
+        <div class="temp-col"><div class="temp-big">${i.temp}</div>
+          <span class="prob-sub">${i.prob} ${i.rainTrackLabel}</span></div>
+        <span class="chev">${ICONS.chevron}</span>
+      </div>
+    </div>`).join('')
+  }</div></div>`;
+}
+
+function tableHTML(d){
+  const h=d.allSorted[0];
+  return `<div class="scroll-area no-scrollbar" style="padding-bottom:96px"><div class="table-card">
+    <table><thead><tr>
+      <th>地点 (Loc)</th><th style="text-align:center">${h.probLabel} %</th>
+      <th style="text-align:right">${h.tempLabel}</th><th style="text-align:center">警报状态</th>
+    </tr></thead><tbody>${
+      d.allSorted.map(i=>`<tr data-loc="${i.id}">
+        <td class="td-loc">${i.name}</td><td class="td-prob">${i.prob}</td>
+        <td class="td-temp">${i.temp}</td><td class="td-stat">${badge(i)}</td>
+      </tr>`).join('')
+    }</tbody></table>
+  </div></div>`;
+}
+
+function footerHTML(d){
+  const n=l=>d.allSorted.filter(i=>i.level===l).length;
+  return `<div class="footer"><div class="footer-inner">
+    <div class="footer-item"><div class="dot red"></div><span>暴雨: ${n('red')}</span></div>
+    <div class="footer-item"><div class="dot yellow"></div><span>雷雨: ${n('yellow')}</span></div>
+    <div class="footer-item"><div class="dot blue"></div><span>浓雾: ${n('blue')}</span></div>
+  </div></div>`;
+}
+
+function modalHTML(s){
+  const tempLabelCls = s.isEng?'en':'zh-temp';
+  const probLabelCls = s.isEng?'en':'zh-prob';
+  return `<div class="overlay" data-overlay><div class="modal">
+    <button class="close-btn" data-close>${ICONS.x}</button>
+    <div class="modal-head">
+      <div class="modal-icon">${weatherIcon(s.icon,'wic-xl')}</div>
+      <h2 class="modal-title">${s.name}</h2>
+      <div class="modal-live">${ICONS.activity}<span>Live Satellite Analysis</span></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-legend">
+        <div><div class="lg-dot" style="background:#1e3a8a"></div>ECMWF</div>
+        <div><div class="lg-dot" style="background:#93c5fd"></div>System</div>
+      </div>
+      <div class="chart-svg-box">
+        <svg style="width:100%;height:100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="M0,50 Q10,20 25,40 T50,60 T75,30 T100,50" fill="none" stroke="#93c5fd" stroke-width="5"/>
+          <path d="M0,60 Q15,40 30,55 T60,30 T85,70 T100,40" fill="none" stroke="#1e3a8a" stroke-width="8" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat temp"><span class="stat-label ${tempLabelCls}">${s.tempLabel}</span><div class="stat-val">${s.temp}</div></div>
+      <div class="stat prob"><span class="stat-label ${probLabelCls}">${s.probLabel}</span><div class="stat-val">${s.prob}</div></div>
+    </div>
+    <div class="alert-bar ${s.level==='red'?'red':'dark'}">
+      <span class="alert-status">${s.status}</span>
+      <p class="alert-desc">${s.desc}</p>
+    </div>
+  </div></div>`;
+}
+
+/* ---- ICON SIZE CLASSES (added via CSS-in-attr) ---- */
+const sizeStyle = document.createElement('style');
+sizeStyle.textContent = `.wic-lg{width:40px;height:40px;} .wic-xl{width:72px;height:72px;}`;
+document.head.appendChild(sizeStyle);
+
+/* ---- EVENTS ---- */
+function bind(d){
+  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.viewMode=b.dataset.view; render(); });
+  const all=d.allSorted;
+  document.querySelectorAll('[data-loc]').forEach(el=>el.onclick=()=>{
+    state.selectedLoc=all.find(x=>x.id===el.dataset.loc); render();
+  });
+  const close=()=>{ state.selectedLoc=null; render(); };
+  const cb=document.querySelector('[data-close]'); if(cb) cb.onclick=close;
+  const ov=document.querySelector('[data-overlay]'); if(ov) ov.onclick=e=>{ if(e.target===ov) close(); };
+}
+
+/* ---- CLOCK TICK (preserved: +1min per minute) ---- */
+setInterval(()=>{ state.currentTime=new Date(state.currentTime.getTime()+60000); render(); }, 60000);
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&state.selectedLoc){ state.selectedLoc=null; render(); }});
+
+render();
+
+/* ---- PWA SERVICE WORKER ---- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+/* ---- INSTALL PROMPT (Android/Chrome) ---- */
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  const t=document.createElement('div'); t.className='install-toast';
+  t.innerHTML=`<span>安装到主屏幕，离线也能用</span><button id="instBtn">安装</button><button class="x" id="instX">${ICONS.x.replace('width="32" height="32"','width="18" height="18"').replace('#020617','#94a3b8')}</button>`;
+  document.body.appendChild(t);
+  document.getElementById('instBtn').onclick=async()=>{ t.remove(); deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; };
+  document.getElementById('instX').onclick=()=>t.remove();
+});
+</script>
+</body>
+</html>
