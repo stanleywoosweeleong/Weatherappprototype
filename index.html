@@ -115,7 +115,8 @@
 
   /* MODAL */
   .overlay{position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(2,6,23,.8); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);}
-  .modal{background:#fff; width:100%; max-width:24rem; border-radius:3.5rem; box-shadow:0 25px 50px rgba(0,0,0,.4); padding:28px; position:relative; overflow:hidden; border:2px solid var(--slate-200); animation:zoomIn .2s ease-out;}
+  .modal{background:#fff; width:100%; max-width:24rem; max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; -webkit-overflow-scrolling:touch; border-radius:3.5rem; box-shadow:0 25px 50px rgba(0,0,0,.4); padding:28px; position:relative; border:2px solid var(--slate-200); animation:zoomIn .2s ease-out;}
+  .modal::-webkit-scrollbar{width:0;}
   @keyframes zoomIn{from{transform:scale(.95);opacity:0;}to{transform:scale(1);opacity:1;}}
   .close-btn{position:absolute; top:28px; right:28px; padding:10px; background:var(--slate-100); border-radius:50%; z-index:10; box-shadow:0 1px 2px rgba(0,0,0,.05); transition:transform .1s; display:flex;}
   .close-btn:active{transform:scale(.9);}
@@ -140,6 +141,24 @@
   .stat-label.zh-temp{font-size:30px;} .stat-label.zh-prob{font-size:24px;} .stat-label.en{font-size:18px; letter-spacing:-.04em;}
   .stat-val{font-size:48px; font-weight:900; color:var(--indigo-950); letter-spacing:-.05em;}
   .alert-bar{width:100%; padding:20px; border-radius:2.5rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border-width:4px; border-style:solid; box-shadow:0 20px 25px rgba(0,0,0,.15);}
+
+  /* Compact the modal on short viewports (laptops) so it fits without clipping */
+  @media (max-height:820px){
+    .modal{padding:20px; border-radius:2.5rem;}
+    .modal-head{margin-bottom:14px; margin-top:2px;}
+    .modal-icon{padding:14px; margin-bottom:10px; border-radius:2rem;}
+    .modal-title{font-size:30px;}
+    .chart-box{margin-bottom:14px; padding:14px; border-radius:2rem;}
+    .chart-svg-box{height:72px;}
+    .stat-grid{gap:12px; margin-bottom:14px;}
+    .stat{min-height:104px; padding:12px; border-radius:2rem;}
+    .stat-val{font-size:40px;}
+    .stat-label.zh-temp{font-size:26px;} .stat-label.zh-prob{font-size:21px;} .stat-label.en{font-size:16px;}
+    .alert-bar{padding:14px; border-radius:2rem;}
+    .alert-status{font-size:21px;}
+    .wic-xl{width:56px !important; height:56px !important;}
+    .close-btn{top:18px; right:18px; padding:8px;}
+  }
   .alert-bar.red{background:var(--red); color:#fff; border-color:var(--red-d);}
   .alert-bar.dark{background:var(--slate-900); color:#fff; border-color:var(--slate-700);}
   .alert-status{font-weight:900; text-transform:uppercase; letter-spacing:.1em; font-size:24px;}
